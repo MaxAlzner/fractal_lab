@@ -16,6 +16,8 @@
 #include <glu3.h>
 #include <SDL.h>
 
+#include "Log.h"
+
 void OnFrame();
 void OnTick();
 

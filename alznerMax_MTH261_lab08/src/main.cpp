@@ -1,6 +1,6 @@
 #include "main.h"
 
-static const float vert_data[] = 
+static const float plane_data[] = 
 {
 	 1.0,  1.0, 0.0, 1.0, 
 	-1.0,  1.0, 0.0, 1.0, 
@@ -9,13 +9,21 @@ static const float vert_data[] =
 	 1.0, -1.0, 0.0, 1.0, 
 	-1.0, -1.0, 0.0, 1.0, 
 };
+static const float triangle_data[] = 
+{
+	 0.0f,  0.43301270f, 0.0f, 1.0f, 
+	-0.5f, -0.43301270f, 0.0f, 1.0f, 
+	 0.5f, -0.43301270f, 0.0f, 1.0f, 
+};
 
 static const int screen_width = 640;
 static const int screen_height = 640;
 static const char* vert_filepath = "data/gl_fractal.vert";
 static const char* frag_filepath = "data/gl_fractal.frag";
-static const char* uniform_locations[] = {""};
-static const char* attributes[] = {"vertex"};
+static const char* uniform_locations[] = {"rotation", "scale", "position", "color", "dimensions", "iterations"};
+static const unsigned num_of_uniforms = 6;
+static const char* attribute_locations[] = {"vertex"};
+static const unsigned num_of_attributes = 1;
 
 static bool AppRunning = true;
 
@@ -26,21 +34,52 @@ static GLuint array_buffer = 0;
 static std::vector<GLint> uniforms;
 static std::vector<GLuint> textures;
 
+static float pi = 3.1415926f;
 static float delta = 0.0f;
 static float mx = 0.0f;
 static float my = 0.0f;
 
+static int iterations = 32;
+
 void OnFrame()
 {
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	
+	glUniform1f(uniforms[0], 0.0f);
+	glUniform2f(uniforms[1], 1.0f, 1.0f);
+	glUniform2f(uniforms[2], 0.0f, 0.0f);
+	glUniform4f(uniforms[3], 1.0f, 1.0f, 1.0f, 1.0f);
+	glUniform2f(uniforms[4], screen_width, screen_height);
+	glUniform1i(uniforms[5], iterations);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	SDL_GL_SwapBuffers();
 }
 void OnTick()
 {
+	delta += 0.001f;
+	if (delta > pi * 2.0f) delta = 0.0f;
+
+	LOG::Out1i("Iterations", iterations);
+}
+void OnKey(char code)
+{
+	switch (code)
+	{
+	case SDLK_ESCAPE:
+		AppRunning = false;
+		break;
+	case 'n':
+		iterations--;
+		if (iterations < 0) iterations = 0;
+		break;
+	case 'm':
+		iterations++;
+		break;
+	default:
+		break;
+	}
 }
 
 bool BuildShader(GLuint* program, const char* vert_loc, const char* frag_loc, const char** outError)
@@ -109,9 +148,7 @@ bool BindAttributes(GLuint program, const char** attributes, unsigned int size)
 
 bool Reshape(int width, int height)
 {
-	SDL_WM_SetCaption("FractalDemo", "FractalDemo");
-
-	ScreenSurface = SDL_SetVideoMode(width, height, 0, SDL_OPENGL);
+	ScreenSurface = SDL_SetVideoMode(width, height, 0, SDL_OPENGL | SDL_RESIZABLE);
 	if (ScreenSurface == NULL) 
 		exit(1);
 	
@@ -124,10 +161,9 @@ bool Listen(SDL_Event &event)
 	switch (event.type)
 	{
 	case SDL_KEYDOWN:
-		event.key.keysym.sym;
+		OnKey(event.key.keysym.sym);
 		break;
 	case SDL_KEYUP:
-		event.key.keysym.sym;
 		break;
 	case SDL_MOUSEMOTION:
 		mx = float(event.motion.x) / float(screen_width);
@@ -157,26 +193,38 @@ bool Listen(SDL_Event &event)
 }
 bool Init()
 {
+	LOG::Initialize();
 	glewInit();
 	if (!GLEW_VERSION_3_0)
 	{
-		printf ("Sorry, this demo requires OpenGL 3.0 or later.\n");
-		exit(1);
+		LOG::Message("Requires OpenGL 3.0 or later.\n");
+		return false;
 	}
 	gluInitializeCompiler();
 
+	SDL_WM_SetCaption("FractalDemo", "FractalDemo");
+
 	const char* shader_error = "";
 	
-	if (!BuildShader(&ShaderProgram, vert_filepath, frag_filepath, &shader_error)) 
-		exit(1);
-	//if (!BindUniforms(ShaderProgram, uniform_locations, 0)) 
-	//	exit(1);
-	if (!BindAttributes(ShaderProgram, attributes, 1)) 
-		exit(1);
+	if (!BuildShader(&ShaderProgram, vert_filepath, frag_filepath, &shader_error))
+	{
+		LOG::Message(shader_error);
+		return false;
+	}
+	if (!BindUniforms(ShaderProgram, uniform_locations, num_of_uniforms))
+	{
+		LOG::Message("Could not bind uniforms.\n");
+		return false;
+	}
+	if (!BindAttributes(ShaderProgram, attribute_locations, num_of_attributes))
+	{
+		LOG::Message("Could not bind attributes.\n");
+		return false;
+	}
 
 	glGenBuffers(1, &array_buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
-	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), vert_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), plane_data, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
@@ -185,27 +233,33 @@ bool Init()
 }
 bool Uninit()
 {
+	LOG::Unitialize();
 	return true;
 }
 
 int main(int argc, char **argv)
 {
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) 
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) 
 		exit(1);
-	atexit(SDL_Quit);
 	srand((unsigned int)time(NULL));
 	
 	AppRunning = AppRunning && Reshape(screen_width, screen_height);
 	AppRunning = AppRunning && Init();
 	
+	time_t lastTime = time(0);
 	while(AppRunning)
 	{
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) 
 			Listen(event);
 		
-		OnTick();
-		OnFrame();
+		time_t newTime = time(0);
+		if (newTime > lastTime)
+		{
+			OnTick();
+			OnFrame();
+			lastTime = newTime;
+		}
 	}
 
 	Uninit();
