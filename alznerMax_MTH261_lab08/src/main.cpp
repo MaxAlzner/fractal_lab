@@ -20,7 +20,7 @@ static const int screen_width = 640;
 static const int screen_height = 640;
 static const char* vert_filepath = "data/gl_fractal.vert";
 static const char* frag_filepath = "data/gl_fractal.frag";
-static const char* uniform_locations[] = {"rotation", "scale", "position", "color", "dimensions", "iterations"};
+static const char* uniform_locations[] = {"rotation", "scale", "position", "palette", "dimensions", "iterations"};
 static const unsigned num_of_uniforms = 6;
 static const char* attribute_locations[] = {"vertex"};
 static const unsigned num_of_attributes = 1;
@@ -32,7 +32,7 @@ static GLuint ShaderProgram = 0;
 
 static GLuint array_buffer = 0;
 static std::vector<GLint> uniforms;
-static std::vector<GLuint> textures;
+static GLuint palette = 0;
 
 static float pi = 3.1415926f;
 static float delta = 0.0f;
@@ -49,7 +49,6 @@ void OnFrame()
 	glUniform1f(uniforms[0], 0.0f);
 	glUniform2f(uniforms[1], 1.0f, 1.0f);
 	glUniform2f(uniforms[2], 0.0f, 0.0f);
-	glUniform4f(uniforms[3], 1.0f, 1.0f, 1.0f, 1.0f);
 	glUniform2f(uniforms[4], screen_width, screen_height);
 	glUniform1i(uniforms[5], iterations);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -150,7 +149,7 @@ bool Reshape(int width, int height)
 {
 	ScreenSurface = SDL_SetVideoMode(width, height, 0, SDL_OPENGL | SDL_RESIZABLE);
 	if (ScreenSurface == NULL) 
-		exit(1);
+		return false;
 	
 	glViewport(0, 0, width, height);
 
@@ -193,19 +192,43 @@ bool Listen(SDL_Event &event)
 }
 bool Init()
 {
+	srand(0);
 	LOG::Initialize();
+	
+	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
+	{
+		LOG::Message("Unable to initialize SDL.");
+		LOG::Message(SDL_GetError());
+		return false;
+	}
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+	SDL_WM_SetCaption("FractalDemo", "FractalDemo");
+
+	Reshape(screen_width, screen_height);
+	
 	glewInit();
 	if (!GLEW_VERSION_3_0)
 	{
-		LOG::Message("Requires OpenGL 3.0 or later.\n");
+		LOG::Message("Requires OpenGL 3.0 or later.");
 		return false;
 	}
-	gluInitializeCompiler();
-
-	SDL_WM_SetCaption("FractalDemo", "FractalDemo");
+	
+	LOG::Message("GL_VENDOR", (char*)glGetString(GL_VENDOR));
+	LOG::Message("GL_RENDERER", (char*)glGetString(GL_RENDERER));
+	LOG::Message("GL_VERSION", (char*)glGetString(GL_VERSION));
+	LOG::Message("GL_SHADING_LANGUAGE_VERSION", (char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	const char* shader_error = "";
 	
+	if (!gluInitializeCompiler())
+	{
+		LOG::Message("Unable to initialize GLSL compiler.");
+		return false;
+	}
 	if (!BuildShader(&ShaderProgram, vert_filepath, frag_filepath, &shader_error))
 	{
 		LOG::Message(shader_error);
@@ -213,12 +236,12 @@ bool Init()
 	}
 	if (!BindUniforms(ShaderProgram, uniform_locations, num_of_uniforms))
 	{
-		LOG::Message("Could not bind uniforms.\n");
+		LOG::Message("Could not bind uniforms.");
 		return false;
 	}
 	if (!BindAttributes(ShaderProgram, attribute_locations, num_of_attributes))
 	{
-		LOG::Message("Could not bind attributes.\n");
+		LOG::Message("Could not bind attributes.");
 		return false;
 	}
 
@@ -229,22 +252,38 @@ bool Init()
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
 
+	FREE_IMAGE_FORMAT format = FreeImage_GetFileType("data/palette.png");
+	FIBITMAP* image = FreeImage_Load(format, "data/palette.png");
+	unsigned int image_w = FreeImage_GetWidth(image);
+	unsigned int image_h = FreeImage_GetHeight(image);
+	void* image_data = FreeImage_GetBits(image);
+
+	glGenTextures(1, &palette);
+	glBindTexture(GL_TEXTURE_2D, palette);
+	glActiveTexture(GL_TEXTURE0);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_BGR, image_w, image_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
 	return true;
 }
 bool Uninit()
 {
+	SDL_Quit();
 	LOG::Unitialize();
 	return true;
 }
 
 int main(int argc, char **argv)
 {
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) 
-		exit(1);
-	srand((unsigned int)time(NULL));
+	if (!Init())
+	{
+		LOG::Message("Initialization failed.");
+		AppRunning = false;
+	}
 	
-	AppRunning = AppRunning && Reshape(screen_width, screen_height);
-	AppRunning = AppRunning && Init();
+	for (unsigned i = 0; i < argc; i++) 
+		LOG::Message(argv[i]);
 	
 	time_t lastTime = time(0);
 	while(AppRunning)
@@ -262,7 +301,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	Uninit();
-	SDL_Quit();
+	if (!Uninit()) 
+		LOG::Message("Uninitialization failed.");
 	return 0;
 }

@@ -15,11 +15,13 @@
 #include <GL\glew.h>
 #include <glu3.h>
 #include <SDL.h>
+#include <FreeImage.h>
 
 #include "Log.h"
 
 void OnFrame();
 void OnTick();
+void OnKey(char code);
 
 bool BuildShader(GLuint* program, const char* vert_loc, const char* frag_loc, const char** outError = NULL);
 bool BindUniforms(GLuint program, const char** uniform_locations, unsigned int size);

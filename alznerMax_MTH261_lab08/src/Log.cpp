@@ -19,6 +19,13 @@ void LOG::Message(const char* str)
 	LOG::Ticks();
 	fprintf(LOG::file, " %s\n", str);
 }
+void LOG::Message(const char* prefix, const char* str)
+{
+	if (LOG::file == NULL) return;
+	LOG::Ticks();
+	if (prefix != NULL) fprintf(LOG::file, " %s", prefix);
+	fprintf(LOG::file, " %s\n", str);
+}
 void LOG::Out1f(const char* prefix, float v0)
 {
 	if (LOG::file == NULL) return;

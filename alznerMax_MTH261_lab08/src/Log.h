@@ -9,6 +9,7 @@ public:
 	static void Unitialize();
 
 	static void Message(const char* str);
+	static void Message(const char* prefix, const char* str);
 	static void Out1f(const char* prefix, float v0);
 	static void Out2f(const char* prefix, float v0, float v1);
 	static void Out3f(const char* prefix, float v0, float v1, float v2);
