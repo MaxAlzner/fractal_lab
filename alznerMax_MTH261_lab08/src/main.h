@@ -15,7 +15,6 @@
 #include <GL\glew.h>
 #include <glu3.h>
 #include <SDL.h>
-#include <FreeImage.h>
 
 #include "Log.h"
 

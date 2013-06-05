@@ -20,8 +20,8 @@ static const int screen_width = 640;
 static const int screen_height = 640;
 static const char* vert_filepath = "data/gl_fractal.vert";
 static const char* frag_filepath = "data/gl_fractal.frag";
-static const char* uniform_locations[] = {"rotation", "scale", "position", "palette", "dimensions", "iterations"};
-static const unsigned num_of_uniforms = 6;
+static const char* uniform_locations[] = {"rotation", "scale", "position", "palette", "zoom", "center", "iterations", "flag"};
+static const unsigned num_of_uniforms = 8;
 static const char* attribute_locations[] = {"vertex"};
 static const unsigned num_of_attributes = 1;
 
@@ -39,7 +39,10 @@ static float delta = 0.0f;
 static float mx = 0.0f;
 static float my = 0.0f;
 
+static float zoom[] = {2.0f, 2.0f};
+static float center[] = {0.4f, 0.0f};
 static int iterations = 32;
+static int flag = 0;
 
 void OnFrame()
 {
@@ -49,8 +52,10 @@ void OnFrame()
 	glUniform1f(uniforms[0], 0.0f);
 	glUniform2f(uniforms[1], 1.0f, 1.0f);
 	glUniform2f(uniforms[2], 0.0f, 0.0f);
-	glUniform2f(uniforms[4], screen_width, screen_height);
-	glUniform1i(uniforms[5], iterations);
+	glUniform2f(uniforms[4], zoom[0], zoom[1]);
+	glUniform2f(uniforms[5], center[0], center[1]);
+	glUniform1i(uniforms[6], iterations);
+	glUniform1i(uniforms[7], flag);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	SDL_GL_SwapBuffers();
@@ -75,6 +80,30 @@ void OnKey(char code)
 		break;
 	case 'm':
 		iterations++;
+		break;
+	case 'b':
+		flag++;
+		if (flag > 1) flag = 0;
+		break;
+	case 'w':
+		center[1] -= 0.1f * zoom[1];
+		break;
+	case 's':
+		center[1] += 0.1f * zoom[1];
+		break;
+	case 'a':
+		center[0] += 0.1f * zoom[0];
+		break;
+	case 'd':
+		center[0] -= 0.1f * zoom[0];
+		break;
+	case 'z':
+		zoom[0] *= 1.2f;
+		zoom[1] *= 1.2f;
+		break;
+	case 'x':
+		zoom[0] *= 0.8f;
+		zoom[1] *= 0.8f;
 		break;
 	default:
 		break;
@@ -251,19 +280,6 @@ bool Init()
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
-
-	FREE_IMAGE_FORMAT format = FreeImage_GetFileType("data/palette.png");
-	FIBITMAP* image = FreeImage_Load(format, "data/palette.png");
-	unsigned int image_w = FreeImage_GetWidth(image);
-	unsigned int image_h = FreeImage_GetHeight(image);
-	void* image_data = FreeImage_GetBits(image);
-
-	glGenTextures(1, &palette);
-	glBindTexture(GL_TEXTURE_2D, palette);
-	glActiveTexture(GL_TEXTURE0);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_BGR, image_w, image_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	glGenerateMipmap(GL_TEXTURE_2D);
 
 	return true;
 }
