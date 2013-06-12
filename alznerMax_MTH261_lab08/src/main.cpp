@@ -39,10 +39,18 @@ static float delta = 0.0f;
 static float mx = 0.0f;
 static float my = 0.0f;
 
-static float zoom[] = {2.0f, 2.0f};
-static float center[] = {0.4f, 0.0f};
+static float zoom[2];
+static float center[2];
 static int iterations = 32;
 static int flag = 0;
+
+void reset()
+{
+	zoom[0] = 2.0f;
+	zoom[1] = 2.0f;
+	center[0] = 0.4f;
+	center[1] = 0.0f;
+}
 
 void OnFrame()
 {
@@ -84,6 +92,7 @@ void OnKey(char code)
 	case 'b':
 		flag++;
 		if (flag > 1) flag = 0;
+		reset();
 		break;
 	case 'w':
 		center[1] -= 0.1f * zoom[1];
@@ -123,13 +132,13 @@ bool BuildShader(GLuint* program, const char* vert_loc, const char* frag_loc, co
 	if (error_log != 0 && strcmp("No errors.", error_log) != 0)
 	{
 		if (outError != NULL) *outError = error_log;
-		return false;
+		//return false;
 	}
 	GLuint fs = gluCompileShader(GL_FRAGMENT_SHADER, fs_code, &error_log);
 	if (error_log != 0 && strcmp("No errors.", error_log) != 0)
 	{
 		if (outError != NULL) *outError = error_log;
-		return false;
+		//return false;
 	}
 	if (outError != NULL) *outError = error_log;
 	
@@ -280,6 +289,8 @@ bool Init()
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
+
+	reset();
 
 	return true;
 }
